@@ -1,0 +1,8 @@
+{
+  "name": "Remix Grupo IDHOK - landing page",
+  "description": "Landing page comercial para o Grupo IDHOK. Conectando lojistas multimarcas e boutiques às coleções Idhok e Essence All Curves.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
