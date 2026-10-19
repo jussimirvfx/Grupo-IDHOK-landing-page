@@ -94,7 +94,7 @@ export const LeadForm: React.FC = () => {
 
   if (isSuccess) {
     return (
-      <div className="bg-white rounded-2xl border border-neutral-200 shadow-xl p-8 md:p-10 text-center animate-fade-in">
+      <div className="font-zabal bg-white rounded-2xl border border-neutral-200 shadow-xl p-8 md:p-10 text-center animate-fade-in">
         <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 border border-emerald-100">
           <CheckCircle2 className="w-8 h-8 stroke-[2]" />
         </div>
@@ -122,7 +122,7 @@ export const LeadForm: React.FC = () => {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 shadow-xl overflow-hidden transition-shadow hover:shadow-2xl">
+    <div className="font-zabal bg-white rounded-2xl border border-neutral-200 shadow-xl overflow-hidden transition-shadow hover:shadow-2xl">
       {/* Form top bar matching reference design */}
       <div className="px-6 py-4 bg-neutral-50 border-b border-neutral-200/80 flex items-center justify-between text-xs">
         <div className="font-semibold text-neutral-900 tracking-wide uppercase">
@@ -135,7 +135,7 @@ export const LeadForm: React.FC = () => {
           {/* 1. Nome completo proprietário */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-              Nome completo proprietário <span className="text-red-500">*</span>
+              Nome completo proprietário
             </label>
             <input
               type="text"
@@ -151,7 +151,7 @@ export const LeadForm: React.FC = () => {
           {/* 2. Nome da loja */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-              Nome da loja <span className="text-red-500">*</span>
+              Nome da loja
             </label>
             <input
               type="text"
@@ -167,7 +167,7 @@ export const LeadForm: React.FC = () => {
           {/* 3. Telefone / WhatsApp */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-              Telefone / WhatsApp <span className="text-red-500">*</span>
+              Telefone / WhatsApp
             </label>
             <input
               type="tel"
@@ -183,7 +183,7 @@ export const LeadForm: React.FC = () => {
           {/* 4. E-mail */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-              E-mail <span className="text-red-500">*</span>
+              E-mail
             </label>
             <input
               type="email"
@@ -199,7 +199,7 @@ export const LeadForm: React.FC = () => {
           {/* 5. CNPJ (with mask and limit) */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-              CNPJ <span className="text-red-500">*</span>
+              CNPJ
             </label>
             <input
               type="text"
@@ -234,7 +234,7 @@ export const LeadForm: React.FC = () => {
           {/* 7. Tipo de loja */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-              Tipo de loja <span className="text-red-500">*</span>
+              Tipo de loja
             </label>
             <select
               name="storeType"
@@ -255,7 +255,7 @@ export const LeadForm: React.FC = () => {
           {/* 8. Loja física? */}
           <div>
             <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-              Loja física? <span className="text-red-500">*</span>
+              Loja física?
             </label>
             <select
               name="hasPhysicalStore"
@@ -274,7 +274,7 @@ export const LeadForm: React.FC = () => {
         {/* 9. Principais marcas que vende na loja */}
         <div>
           <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-            Principais marcas que vende na loja <span className="text-red-500">*</span>
+            Principais marcas que vende na loja
           </label>
           <input
             type="text"

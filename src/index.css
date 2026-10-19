@@ -1,22 +1,253 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Zabal';
+  src: url('/fonts/ZabalDEMO-Light.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 80.2%;
+}
+
+@font-face {
+  font-family: 'Zabal';
+  src: url('/fonts/ZabalDEMO-Regular.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 80.04%;
+}
+
+@font-face {
+  font-family: 'Zabal';
+  src: url('/fonts/ZabalDEMO-Medium.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 82.87%;
+}
+
+@font-face {
+  font-family: 'Zabal';
+  src: url('/fonts/ZabalDEMO-SemiBold.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 81.27%;
+}
+
+@font-face {
+  font-family: 'Zabal';
+  src: url('/fonts/ZabalDEMO-Bold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 85.69%;
+}
+
+@font-face {
+  font-family: 'Zabal';
+  src: url('/fonts/ZabalDEMO-ExtraBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 85.69%;
+}
+
+@font-face {
+  font-family: 'Zabal';
+  src: url('/fonts/ZabalDEMO-Ultra.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  size-adjust: 91.47%;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-ExtraLight.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-ExtraLightItalic.otf') format('opentype');
+  font-weight: 200;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-LightItalic.otf') format('opentype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-RegularItalic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-Book.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-BookItalic.otf') format('opentype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-BoldItalic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Nobel Uno';
+  src: url('/fonts/NobelTRIAL-BlackItalic.otf') format('opentype');
+  font-weight: 900;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-007F;
+}
+
+@font-face {
+  font-family: 'Black Mango';
+  src: url('/fonts/black-mango-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-serif: 'Playfair Display', Georgia, serif;
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-serif: 'Black Mango', 'Playfair Display', Georgia, serif;
+  --font-sans: 'Nobel Uno', 'Zabal', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-zabal: 'Zabal', 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  /* Paleta oficial Grupo IDHOK */
+  --color-white: #fbf4ec;
+  --color-black: #1e1c1d;
+  --color-neutral-50: #fdf9f4;
+  --color-neutral-100: #f7efe6;
+  --color-neutral-200: #eadfd2;
+  --color-neutral-300: #d8c8b5;
+  --color-neutral-400: #b29e85;
+  --color-neutral-500: #8f7c66;
+  --color-neutral-600: #6e5d4d;
+  --color-neutral-700: #51443a;
+  --color-neutral-800: #332e2b;
+  --color-neutral-900: #242122;
+  --color-neutral-950: #1e1c1d;
 }
 
 html {
   scroll-behavior: smooth;
   font-family: var(--font-sans);
-  color: #171717;
-  background-color: #fcfcfc;
+  color: #1e1c1d;
+  background-color: #fbf4ec;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background-color: #111111;
-  color: #ffffff;
+  background-color: #1e1c1d;
+  color: #fbf4ec;
+}
+
+/* Subtle repeated reveal: content animates without changing the page colors or layout. */
+.reveal-page > section > :not(.absolute),
+.reveal-page > footer > :not(.absolute) {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 650ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-page > section.is-visible > :not(.absolute),
+.reveal-page > footer.is-visible > :not(.absolute) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-page > section > :not(.absolute):nth-child(2),
+.reveal-page > footer > :not(.absolute):nth-child(2) {
+  transition-delay: 90ms;
+}
+
+.reveal-page > section > :not(.absolute):nth-child(3),
+.reveal-page > footer > :not(.absolute):nth-child(3) {
+  transition-delay: 160ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-page > section > :not(.absolute),
+  .reveal-page > footer > :not(.absolute) {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 /* Custom subtle scrollbar */
@@ -25,12 +256,12 @@ html {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #fbf4ec;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
+  background: #b29e85;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #999999;
+  background: #8f7c66;
 }
