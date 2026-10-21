@@ -68,11 +68,12 @@ function AnimatedNumber({ value, prefix = '', suffix = '' }: AnimatedNumberProps
     };
   }, [value]);
 
-  const finalLabel = `${prefix}${value}${suffix}`;
+  const formatNumber = (number: number) => number.toLocaleString('pt-BR');
+  const finalLabel = `${prefix}${formatNumber(value)}${suffix}`;
 
   return (
     <span ref={elementRef} aria-label={finalLabel}>
-      <span aria-hidden="true">{prefix}{displayValue}{suffix}</span>
+      <span aria-hidden="true">{prefix}{formatNumber(displayValue)}{suffix}</span>
     </span>
   );
 }
@@ -153,9 +154,9 @@ export default function App() {
           {/* Logo Minimalista no topo sem navbar */}
           <div className="mb-10 md:mb-14">
             <img
-              src="/images/logo-grupo-idhok-v2.png"
-              alt="Grupo IDHOK"
-              className="w-44 sm:w-56 md:w-64 h-auto brightness-0 invert drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]"
+              src="/images/logo-idhok-essence.png"
+              alt="IDHOK e Essence All Curves"
+              className="w-64 sm:w-80 md:w-96 max-w-full h-auto object-contain brightness-0 invert drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]"
             />
           </div>
 
@@ -250,7 +251,7 @@ export default function App() {
             <div className="py-3 sm:py-0 sm:px-6 flex flex-col justify-between">
               <div>
                 <span className="text-3xl sm:text-4xl md:text-5xl font-serif font-normal tracking-tight text-white block">
-                  <AnimatedNumber value={700} prefix="+" />
+                  <AnimatedNumber value={1000} prefix="+" />
                 </span>
                 <p className="mt-3 text-neutral-400 text-sm md:text-base font-light">
                   lojistas parceiros
@@ -266,7 +267,7 @@ export default function App() {
                     <AnimatedNumber value={200} prefix="+" />
                   </span>
                   <p className="text-sm font-medium text-neutral-300 uppercase tracking-wider sm:mt-1">
-                    referências
+                    REFER<span className="stat-special-letter stat-special-letter-circumflex">Ê</span>NCIAS
                   </p>
                 </div>
                 <p className="mt-3 sm:mt-1 text-neutral-400 text-sm md:text-base font-light">
@@ -283,7 +284,7 @@ export default function App() {
                     <AnimatedNumber value={120} suffix=" mil" />
                   </span>
                   <p className="text-sm font-medium text-neutral-300 uppercase tracking-wider sm:mt-1">
-                    peças
+                    PE<span className="stat-special-letter stat-special-letter-cedilla">Ç</span>AS
                   </p>
                 </div>
                 <p className="mt-3 sm:mt-1 text-neutral-400 text-sm md:text-base font-light">
@@ -611,9 +612,9 @@ export default function App() {
           {/* LOGO à esquerda */}
           <div className="flex items-center">
             <img
-              src="/images/logo-grupo-idhok-v2.png"
-              alt="Grupo IDHOK"
-              className="w-36 sm:w-44 h-auto brightness-0"
+              src="/images/logo-idhok-essence.png"
+              alt="IDHOK e Essence All Curves"
+              className="w-56 sm:w-72 max-w-full h-auto object-contain brightness-0"
             />
           </div>
 

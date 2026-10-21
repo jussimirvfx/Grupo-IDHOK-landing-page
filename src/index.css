@@ -214,6 +214,23 @@ html {
   color: #fbf4ec;
 }
 
+.stat-special-letter {
+  display: inline-block;
+  font-family: 'Zabal', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 400;
+  line-height: 0.8;
+  vertical-align: baseline;
+  transform-origin: center bottom;
+}
+
+.stat-special-letter-circumflex {
+  transform: scale(1.12);
+}
+
+.stat-special-letter-cedilla {
+  transform: scale(1.15);
+}
+
 /* Subtle repeated reveal: content animates without changing the page colors or layout. */
 .reveal-page > section > :not(.absolute),
 .reveal-page > footer > :not(.absolute) {

@@ -10,12 +10,12 @@ const collectionImages = [
     alt: 'Look Urban Habitat com vestido marrom em couro',
   },
   {
-    src: '/images/urban-habitat-04.jpg',
-    alt: 'Look Urban Habitat com conjunto de alfaiataria marrom',
+    src: '/images/urban-habitat-08.jpg',
+    alt: 'Look Urban Habitat com vestido cinza e casaco branco',
   },
   {
-    src: '/images/urban-habitat-05.jpg',
-    alt: 'Look Urban Habitat com conjunto vinho e botas',
+    src: '/images/hero-02.jpg',
+    alt: 'Look Urban Habitat marrom com jaqueta e saia xadrez',
   },
   {
     src: '/images/urban-habitat-06.jpg',
@@ -26,8 +26,8 @@ const collectionImages = [
     alt: 'Look Urban Habitat com conjunto rosa e bolsa vinho',
   },
   {
-    src: '/images/urban-habitat-08.jpg',
-    alt: 'Look Urban Habitat com vestido cinza e casaco branco',
+    src: '/images/urban-habitat-04.jpg',
+    alt: 'Look Urban Habitat com conjunto de alfaiataria marrom',
   },
   {
     src: '/images/urban-habitat-09.jpg',
