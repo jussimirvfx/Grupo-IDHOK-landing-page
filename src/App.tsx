@@ -9,6 +9,7 @@ import {
 import { LeadForm } from './components/LeadForm';
 import { CollectionCarousel } from './components/CollectionCarousel';
 import { FaqAccordion } from './components/FaqAccordion';
+import { focusFormAfterScroll } from '../lib/form-focus.js';
 
 const WHATSAPP_URL = 'https://wa.me/';
 const COUNT_UP_DURATION = 1300;
@@ -80,6 +81,8 @@ function AnimatedNumber({ value, prefix = '', suffix = '' }: AnimatedNumberProps
 
 export default function App() {
   const formRef = useRef<HTMLDivElement>(null);
+  const cancelFormFocus = useRef<() => void>(() => {});
+  useEffect(() => () => cancelFormFocus.current(), []);
 
   useEffect(() => {
     const animatedSections = document.querySelectorAll<HTMLElement>('section, footer');
@@ -105,11 +108,9 @@ export default function App() {
   }, []);
 
   const scrollToForm = () => {
+    cancelFormFocus.current();
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => {
-      const firstInput = formRef.current?.querySelector('input');
-      firstInput?.focus();
-    }, 500);
+    cancelFormFocus.current = focusFormAfterScroll(formRef.current);
   };
 
   return (

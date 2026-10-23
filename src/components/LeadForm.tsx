@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { CheckCircle2, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react';
-import { isValidCnpj, isValidPhone } from '../../lib/lead-validation.js';
+import { cnpjDisplay, cnpjMessage, isValidCnpj, isValidPhone, nationalPhone, phoneDisplay, phoneEdit, PHONE_ERROR } from '../../lib/lead-validation.js';
 
 interface FormData {
   ownerName: string;
@@ -27,24 +27,10 @@ const initialFormData: FormData = {
 };
 
 // Mask utility for CNPJ: 00.000.000/0000-00
-export const formatCNPJ = (value: string): string => {
-  const digits = value.replace(/\D/g, '').slice(0, 14);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
-  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
-  if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
-  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12, 14)}`;
-};
+export const formatCNPJ = cnpjDisplay;
 
 // Mask utility for Brazilian Phone / WhatsApp: (11) 99999-9999
-export const formatPhone = (value: string): string => {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  if (digits.length === 0) return '';
-  if (digits.length <= 2) return `(${digits}`;
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
-};
+export const formatPhone = phoneDisplay;
 
 export const LeadForm: React.FC = () => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -52,8 +38,60 @@ export const LeadForm: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [submittedName, setSubmittedName] = useState('');
   const [submissionError, setSubmissionError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({ cnpj: '', phone: '' });
   const submitting = useRef(false);
   const submission = useRef<{ id: string; signature: string } | null>(null);
+
+  const setFieldError = (field: HTMLInputElement, message: string) => {
+    field.setCustomValidity(message);
+    setFieldErrors((previous) => ({ ...previous, [field.name]: message }));
+  };
+
+  const updateMaskedField = (field: HTMLInputElement, raw: string, pastedCursor?: number) => {
+    const cursor = pastedCursor ?? field.selectionStart;
+    const digitsBefore = raw.slice(0, cursor ?? raw.length).replace(/\D/g, '').length;
+    const edit = field.name === 'phone' ? phoneEdit(formData.phone, raw) : {
+      value: formatCNPJ(raw), accepted: true,
+      error: raw.replace(/\D/g, '').length >= 14 || fieldErrors.cnpj ? cnpjMessage(formatCNPJ(raw)) : '',
+    };
+    field.value = edit.value;
+    setFormData((previous) => ({ ...previous, [field.name]: edit.value }));
+    setFieldError(field, edit.error);
+    // Restore by digit position, including edits in the middle of the mask.
+    if (edit.accepted && cursor !== null) {
+      let position = 0, seen = 0;
+      while (position < edit.value.length && seen < digitsBefore) {
+        if (/\d/.test(edit.value[position])) seen++;
+        position++;
+      }
+      field.setSelectionRange(position, position);
+    }
+  };
+
+  const handlePhonePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const field = e.currentTarget;
+    const start = field.selectionStart ?? 0, end = field.selectionEnd ?? field.value.length;
+    const pasted = e.clipboardData.getData('text');
+    updateMaskedField(field, field.value.slice(0, start) + pasted + field.value.slice(end), start + pasted.length);
+  };
+
+  const handleValidationBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const field = e.currentTarget;
+    if (field.name === 'cnpj') {
+      const value = formatCNPJ(field.value);
+      field.value = value;
+      setFormData((previous) => ({ ...previous, cnpj: value }));
+      setFieldError(field, cnpjMessage(value));
+    } else {
+      const valid = isValidPhone(field.value);
+      if (valid) {
+        field.value = phoneDisplay(field.value);
+        setFormData((previous) => ({ ...previous, phone: field.value }));
+      }
+      setFieldError(field, field.value && !valid ? PHONE_ERROR : '');
+    }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -62,9 +100,9 @@ export const LeadForm: React.FC = () => {
     e.target.setCustomValidity('');
     setSubmissionError('');
     if (name === 'cnpj') {
-      setFormData((prev) => ({ ...prev, cnpj: formatCNPJ(value) }));
+      updateMaskedField(e.target as HTMLInputElement, value);
     } else if (name === 'phone') {
-      setFormData((prev) => ({ ...prev, phone: formatPhone(value) }));
+      updateMaskedField(e.target as HTMLInputElement, value);
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -77,13 +115,20 @@ export const LeadForm: React.FC = () => {
     // Read the displayed values too, including browser autofill without onChange.
     const values = Object.fromEntries(new FormData(form).entries()) as unknown as FormData;
     for (const [name, valid, message] of [
-      ['cnpj', isValidCnpj(values.cnpj), 'CNPJ inválido. Verifique os 14 dígitos.'],
-      ['phone', isValidPhone(values.phone), 'Telefone inválido. Informe DDD e número completo.'],
+      ['cnpj', isValidCnpj(values.cnpj), cnpjMessage(values.cnpj)],
+      ['phone', isValidPhone(values.phone), PHONE_ERROR],
     ] as const) {
       const field = form.elements.namedItem(name) as HTMLInputElement;
-      field.setCustomValidity(valid ? '' : message);
-      if (!valid) { field.reportValidity(); return; }
+      setFieldError(field, valid || !values[name] ? '' : message);
     }
+    // Validate the visible autofill values before native constraints can use a
+    // stale customValidity from an earlier edit. Keep all required/email checks.
+    if (!form.reportValidity()) {
+      form.querySelector<HTMLInputElement>(':invalid')?.focus({ preventScroll: true });
+      return;
+    }
+    values.phone = phoneDisplay(values.phone);
+    values.cnpj = formatCNPJ(values.cnpj);
     submitting.current = true;
     setIsSubmitting(true);
     setSubmissionError('');
@@ -105,8 +150,8 @@ export const LeadForm: React.FC = () => {
         const messages: Record<string, string> = {
           'invalid-cnpj': 'CNPJ inválido. Verifique os dados informados.',
           'invalid-phone': 'Telefone inválido. Informe DDD e número completo.',
-          'cnpj-inactive': 'Para se cadastrar, é necessário um CNPJ ativo.',
-          'cnpj-unavailable': 'Não foi possível confirmar o CNPJ agora. Tente novamente em instantes.',
+          'cnpj-inactive': 'Não foi possível validar o cadastro da empresa. Confira o CNPJ e tente novamente.',
+          'cnpj-unavailable': 'Não foi possível validar o cadastro da empresa. Confira o CNPJ e tente novamente.',
         };
         throw new Error(messages[result?.error] || 'Não foi possível confirmar o cadastro. Tente novamente.');
       }
@@ -124,6 +169,7 @@ export const LeadForm: React.FC = () => {
     setFormData(initialFormData);
     setIsSuccess(false);
     setSubmissionError('');
+    setFieldErrors({ cnpj: '', phone: '' });
     submission.current = null;
   };
 
@@ -165,7 +211,7 @@ export const LeadForm: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-5">
+      <form noValidate onSubmit={handleSubmit} className="p-6 md:p-8 space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* 1. Nome completo proprietário */}
           <div>
@@ -207,12 +253,27 @@ export const LeadForm: React.FC = () => {
             <input
               type="tel"
               name="phone"
+              inputMode="tel"
+              autoComplete="tel-national"
+              aria-invalid={fieldErrors.phone ? true : undefined}
+              aria-describedby={fieldErrors.phone ? 'idhok-phone-error' : undefined}
               required
               placeholder="(00) 00000-0000"
               value={formData.phone}
               onChange={handleChange}
+              onBlur={handleValidationBlur}
+              onPaste={handlePhonePaste}
+              onKeyDown={(e) => {
+                const field = e.currentTarget;
+                if (/^\d$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && field.selectionStart === field.selectionEnd
+                  && nationalPhone(field.value).length === 11 && isValidPhone(field.value)) {
+                  e.preventDefault();
+                  setFieldError(field, '');
+                }
+              }}
               className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400"
             />
+            {fieldErrors.phone ? <p id="idhok-phone-error" role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.phone}</p> : null}
           </div>
 
           {/* 4. E-mail */}
@@ -239,13 +300,18 @@ export const LeadForm: React.FC = () => {
             <input
               type="text"
               name="cnpj"
+              inputMode="numeric"
+              aria-invalid={fieldErrors.cnpj ? true : undefined}
+              aria-describedby={fieldErrors.cnpj ? 'idhok-cnpj-error' : undefined}
               required
               maxLength={18}
               placeholder="00.000.000/0000-00"
               value={formData.cnpj}
               onChange={handleChange}
+              onBlur={handleValidationBlur}
               className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400 font-mono tracking-tight"
             />
+            {fieldErrors.cnpj ? <p id="idhok-cnpj-error" role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.cnpj}</p> : null}
           </div>
 
           {/* 6. @Instagram da loja */}

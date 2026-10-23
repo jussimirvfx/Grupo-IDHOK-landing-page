@@ -29,6 +29,7 @@ function harness(overrides = {}) {
 test('maps every current field to the former flow without inventing score or answers', async () => {
   const h = harness(), body = fixture();
   body.formData.salespeople = '4 ou mais'; body.formData.state = 'XX'; body.leadScore = 999;
+  body.company = { situacao_cadastral: 'ATIVA', endereco: { estado: 'XX' } };
   await h.run(body); await Promise.all(h.scheduled);
   assert.equal(h.res.code, 200); assert.equal(h.res.body.submission_id, body.submission_id);
   assert.equal(h.deliveries.length, 1);
@@ -36,6 +37,8 @@ test('maps every current field to the former flow without inventing score or ans
   assert.equal(p.fullName, body.formData.ownerName); assert.equal(p.storeName, body.formData.storeName);
   assert.equal(p.email, body.formData.email); assert.equal(p.phone, body.formData.phone);
   assert.equal(p.cnpj, body.formData.cnpj); assert.equal(p.instagram, body.formData.instagram);
+  assert.equal(p.cnpj_digits, '60887522000189'); assert.equal(p.cnpj_validation_status, 'cadastral_valid');
+  assert.equal(p.encontrado, true); assert.equal(p.fonte, 'mock'); assert.deepEqual(p.company, company().company);
   assert.equal(p.storeType, body.formData.storeType); assert.equal(p.hasPhysicalStore, body.formData.hasPhysicalStore);
   assert.equal(p.message, body.formData.mainBrands); assert.equal(p.mainBrands, body.formData.mainBrands);
   assert.equal(p.state, 'SC'); assert.equal(p.city, 'Cidade de teste'); assert.equal(p.phoneE164, '+5547999991234');

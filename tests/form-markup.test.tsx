@@ -9,7 +9,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { LeadForm } from '../src/components/LeadForm.tsx';
 
-test('the initial form markup, fields, copy and classes match the published design exactly', async () => {
+test('initial fields, copy and classes match the design; only validation attributes are added', async () => {
   const original = execFileSync('git', ['show', '27e97baee738107a1f408b0426b1395e56ef08d7:src/components/LeadForm.tsx'], { encoding: 'utf8' });
   const compiled = await transform(original, { loader: 'tsx', format: 'esm', jsx: 'automatic' });
   const cache = path.resolve('node_modules/.cache'); await mkdir(cache, { recursive: true });
@@ -17,6 +17,7 @@ test('the initial form markup, fields, copy and classes match the published desi
   try {
     const file = path.join(temporary, 'original.mjs'); await writeFile(file, compiled.code);
     const { LeadForm: OriginalForm } = await import(pathToFileURL(file).href);
-    assert.equal(renderToStaticMarkup(<LeadForm />), renderToStaticMarkup(<OriginalForm />));
+    const withoutValidationAttributes = (html: string) => html.replace(/ (?:inputMode|autoComplete|noValidate)="[^"]*"/g, '');
+    assert.equal(withoutValidationAttributes(renderToStaticMarkup(<LeadForm />)), renderToStaticMarkup(<OriginalForm />));
   } finally { await rm(temporary, { recursive: true, force: true }); }
 });

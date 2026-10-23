@@ -1,6 +1,6 @@
 import { waitUntil } from '@vercel/functions';
 import { lookupCnpj } from '../lib/cnpj.js';
-import { isValidCnpj, isValidPhone, nationalPhone, phoneDisplay, STORE_TYPES } from '../lib/lead-validation.js';
+import { cnpjDisplay, isValidCnpj, isValidPhone, nationalPhone, phoneDisplay, STORE_TYPES } from '../lib/lead-validation.js';
 
 const fields = ['ownerName', 'storeName', 'phone', 'email', 'cnpj', 'instagram', 'storeType', 'hasPhysicalStore', 'mainBrands'];
 const required = fields.filter((key) => key !== 'instagram');
@@ -39,6 +39,7 @@ export function createLeadHandler({ lookup = lookupCnpj, fetchImpl = fetch, sche
 
     const form = Object.fromEntries(fields.map((key) => [key, input[key].trim()]));
     form.phone = phoneDisplay(form.phone);
+    form.cnpj = cnpjDisplay(form.cnpj);
     const submissionId = body.submission_id;
     const record = (event, details) => logger(JSON.stringify({ event, project: 'grupo-idhok-landing-page', submission_id: submissionId, ...details }));
     try { record('landing_form_intake_backup', { payload: form }); }
@@ -66,6 +67,8 @@ export function createLeadHandler({ lookup = lookupCnpj, fetchImpl = fetch, sche
       url: typeof body.page_url === 'string' ? body.page_url.slice(0, 2000) : '', ...utm,
       timestamp: new Date().toISOString(), source: 'landing-page-essence-reflexos', submission_id: submissionId,
       cnpj_validation_status: 'cadastral_valid', cnpj_provider: registration.fonte || '',
+      cnpj_digits: form.cnpj.replace(/\D/g, ''), encontrado: true,
+      fonte: registration.fonte || '', company: registration.company,
     };
     try { record('landing_form_backup', { payload }); }
     catch { return res.status(503).json({ ok: false, error: 'backup-unconfirmed', backup_recorded: true }); }
