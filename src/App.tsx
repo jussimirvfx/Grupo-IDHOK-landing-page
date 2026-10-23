@@ -80,18 +80,6 @@ function AnimatedNumber({ value, prefix = '', suffix = '' }: AnimatedNumberProps
 
 export default function App() {
   const formRef = useRef<HTMLDivElement>(null);
-  const [heroSlide, setHeroSlide] = useState(0);
-
-  useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) return;
-
-    const interval = window.setInterval(() => {
-      setHeroSlide((current) => (current === 0 ? 1 : 0));
-    }, 2000);
-
-    return () => window.clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const animatedSections = document.querySelectorAll<HTMLElement>('section, footer');
@@ -136,16 +124,7 @@ export default function App() {
           <img
             src="/images/hero.jpg"
             alt=""
-            className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-[1600ms] ease-in-out motion-reduce:transition-none ${
-              heroSlide === 0 ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-          <img
-            src="/images/hero-02.jpg"
-            alt=""
-            className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-[1600ms] ease-in-out motion-reduce:transition-none ${
-              heroSlide === 1 ? 'opacity-100' : 'opacity-0'
-            }`}
+            className="absolute inset-0 w-full h-full object-cover object-center"
           />
         </div>
         <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
