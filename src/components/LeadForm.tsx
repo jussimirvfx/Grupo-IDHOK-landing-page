@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { CheckCircle2, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react';
+import { isValidCnpj, isValidPhone } from '../../lib/lead-validation.js';
 
 interface FormData {
   ownerName: string;
@@ -50,11 +51,16 @@ export const LeadForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submittedName, setSubmittedName] = useState('');
+  const [submissionError, setSubmissionError] = useState('');
+  const submitting = useRef(false);
+  const submission = useRef<{ id: string; signature: string } | null>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
+    e.target.setCustomValidity('');
+    setSubmissionError('');
     if (name === 'cnpj') {
       setFormData((prev) => ({ ...prev, cnpj: formatCNPJ(value) }));
     } else if (name === 'phone') {
@@ -64,32 +70,61 @@ export const LeadForm: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    // Save locally for persistence / preview demonstration
-    try {
-      const existing = JSON.parse(localStorage.getItem('idhok_leads') || '[]');
-      const newLead = {
-        ...formData,
-        timestamp: new Date().toISOString(),
-      };
-      localStorage.setItem('idhok_leads', JSON.stringify([newLead, ...existing]));
-    } catch {
-      // ignore
+    if (submitting.current) return;
+    const form = e.currentTarget;
+    // Read the displayed values too, including browser autofill without onChange.
+    const values = Object.fromEntries(new FormData(form).entries()) as unknown as FormData;
+    for (const [name, valid, message] of [
+      ['cnpj', isValidCnpj(values.cnpj), 'CNPJ inválido. Verifique os 14 dígitos.'],
+      ['phone', isValidPhone(values.phone), 'Telefone inválido. Informe DDD e número completo.'],
+    ] as const) {
+      const field = form.elements.namedItem(name) as HTMLInputElement;
+      field.setCustomValidity(valid ? '' : message);
+      if (!valid) { field.reportValidity(); return; }
     }
-
-    setTimeout(() => {
-      setIsSubmitting(false);
+    submitting.current = true;
+    setIsSubmitting(true);
+    setSubmissionError('');
+    setFormData(values);
+    const signature = JSON.stringify(values);
+    if (!submission.current || submission.current.signature !== signature) {
+      submission.current = { id: crypto.randomUUID(), signature };
+    }
+    const submissionId = submission.current.id;
+    try {
+      const search = new URLSearchParams(window.location.search);
+      const response = await fetch('/api/leads', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData: values, submission_id: submissionId, page_url: window.location.href,
+          utm: Object.fromEntries(['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].map((key) => [key, search.get(key) || ''])) }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok || result.dry_run || !result.accepted || !result.backup_recorded || !result.delivery_scheduled || result.submission_id !== submissionId) {
+        const messages: Record<string, string> = {
+          'invalid-cnpj': 'CNPJ inválido. Verifique os dados informados.',
+          'invalid-phone': 'Telefone inválido. Informe DDD e número completo.',
+          'cnpj-inactive': 'Para se cadastrar, é necessário um CNPJ ativo.',
+          'cnpj-unavailable': 'Não foi possível confirmar o CNPJ agora. Tente novamente em instantes.',
+        };
+        throw new Error(messages[result?.error] || 'Não foi possível confirmar o cadastro. Tente novamente.');
+      }
+      setSubmittedName(values.ownerName);
       setIsSuccess(true);
-      setSubmittedName(formData.ownerName);
-    }, 700);
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : 'Não foi possível confirmar o cadastro. Tente novamente.');
+    } finally {
+      submitting.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
     setFormData(initialFormData);
     setIsSuccess(false);
+    setSubmissionError('');
+    submission.current = null;
   };
 
   if (isSuccess) {
@@ -286,6 +321,8 @@ export const LeadForm: React.FC = () => {
             className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400"
           />
         </div>
+
+        {submissionError && <p role="alert" className="text-sm text-red-700">{submissionError}</p>}
 
         {/* Submit CTA Button */}
         <button
