@@ -95,7 +95,8 @@ export function createLeadHandler({ lookup = lookupCnpj, fetchImpl = fetch, sche
     catch { return res.status(503).json({ ok: false, error: 'delivery-not-scheduled', backup_recorded: true }); }
     return res.status(200).json({ ok: true, accepted: true, backup_recorded: true, delivery_scheduled: true, submission_id: submissionId,
       lead_score: score.total, score_status: score.status, isQualifiedLead: score.qualified,
-      score_breakdown: score.items, disqualification_reasons: score.reasons });
+      score_breakdown: score.items, disqualification_reasons: score.reasons,
+      tracking_data: { city: payload.city, state: payload.state, zip: registration.company.endereco.cep || '', country: 'br' } });
   };
 }
 

@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { CheckCircle2, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react';
 import { cnpjDisplay, cnpjMessage, isValidCnpj, isValidPhone, nationalPhone, phoneDisplay, phoneEdit, PHONE_ERROR } from '../../lib/lead-validation.js';
 import { calculateLeadScore } from '../../lib/lead-score.js';
+import { trackAcceptedLead } from '../../lib/meta-lead.js';
+import { isLocalPreview, updateAdvancedMatching, useLeadTracking } from '../metaTracking';
 
 interface FormData {
   ownerName: string;
@@ -44,6 +46,7 @@ const logLeadScore = (score: ReturnType<typeof calculateLeadScore>) => {
 };
 
 export const LeadForm: React.FC = () => {
+  const tracking = useLeadTracking();
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -163,8 +166,7 @@ export const LeadForm: React.FC = () => {
     }
     const submissionId = submission.current.id;
     try {
-      const localPreview = import.meta.env?.PROD !== true && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
-      if (localPreview) {
+      if (isLocalPreview()) {
         let company = null;
         try {
           const lookup = await fetch('/api/cnpj', {
@@ -211,6 +213,9 @@ export const LeadForm: React.FC = () => {
         qualified: result.isQualifiedLead, reasons: result.disqualification_reasons });
       setSubmittedName(values.ownerName);
       setIsSuccess(true);
+      void trackAcceptedLead(tracking, values, result, updateAdvancedMatching).then((events) => {
+        if (events.some((event) => event.status === 'rejected')) console.warn('[META PIXEL] Falha no tracking; cadastro recebido.');
+      }).catch(() => console.warn('[META PIXEL] Falha no tracking; cadastro recebido.'));
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : 'Não foi possível confirmar o cadastro. Tente novamente.');
     } finally {
@@ -239,11 +244,6 @@ export const LeadForm: React.FC = () => {
         <p className="text-neutral-600 text-sm md:text-base leading-relaxed max-w-md mx-auto mb-6">
           Obrigado, <strong className="text-neutral-900">{submittedName || 'Lojista'}</strong>. Seus dados foram encaminhados para a nossa equipe comercial do Grupo IDHOK. Um representante entrará em contato via WhatsApp / E-mail em breve.
         </p>
-        <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200/70 text-left text-xs text-neutral-600 mb-6 space-y-1">
-          <p><span className="font-semibold text-neutral-900">Loja:</span> {formData.storeName || 'Não informada'}</p>
-          <p><span className="font-semibold text-neutral-900">Telefone:</span> {formData.phone || 'Não informado'}</p>
-          <p><span className="font-semibold text-neutral-900">Tipo:</span> {formData.storeType}</p>
-        </div>
         <button
           onClick={handleReset}
           type="button"

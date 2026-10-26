@@ -64,3 +64,35 @@ O botão flutuante e os demais CTAs de cadastro levam ao formulário. A consulta
 Com `npm run dev`, o envio de um formulário válido em localhost calcula uma prévia usando o mesmo `calculateLeadScore` da API. O Vite encaminha apenas `/api/cnpj` para a rota de consulta da LP publicada, que mantém a autenticação da API central no servidor. Nenhum cadastro de teste local é enviado ao webhook.
 
 No console do navegador, o grupo `Lead score — Grupo IDHOK` apresenta os pontos de cada critério, o total, o status, a qualificação e os motivos de desqualificação. Se a consulta falhar, o console informa que a nota é parcial e os dados ausentes não recebem pontos. CNPJ inativo não é marcado como qualificado. O formulário permanece disponível para outro teste, sem exibir confirmação de entrega comercial.
+
+## Meta Pixel e Conversion API — etapa 2
+
+O projeto usa React/Vite. `scoretrack@1.0.0` foi instalado pelo registry público do npm e fixado nessa versão. `src/main.tsx` monta `TrackingProvider`, com configuração manual em `src/MetaTrackingProvider.tsx`. Não montar o componente adicional `MetaPixel`: o provider do pacote já envia `PageView`.
+
+O provider também envia o evento personalizado `Scroll` nos marcos 0%, 25%, 50%, 75% e 100%, pelo Pixel e pela CAPI, com `scroll_depth`, `scroll_percentage` e `page_path`. Cada marco dispara uma única vez por carregamento, inclusive ao voltar e descer novamente. O marco zero é registrado após inicializar o Pixel; o de 100% usa tolerância de um pixel no final da página, sem arredondar antecipadamente. A API aceita somente esses cinco valores. Os marcos estão centralizados em `lib/meta-events.js`.
+
+O cadastro aceito dispara `Lead`. `LeadQualificado` exige `isQualifiedLead: true`, status `qualified`, score de pelo menos 50 e lista vazia de motivos de desqualificação. A API devolve cidade, estado e CEP confirmados na consulta cadastral para matching; o telefone segue E.164. `value` e `lead_score` preservam o mesmo valor calculado na etapa 1. Falhas do tracking não alteram o aceite do cadastro nem a mensagem de agradecimento. Pixel e CAPI usam o mesmo nome e identificador gerados pelo pacote.
+
+### Configuração
+
+- Público no Vite: `VITE_META_PIXEL_ID=2372940856574782`.
+- Servidor: `META_PIXEL_ID`, `META_API_ACCESS_TOKEN` e, somente em Development/Preview, `META_TEST_EVENT_CODE`.
+- `.env.local` contém as credenciais recebidas e permanece ignorado pelo Git. O token nunca recebe prefixo `VITE_` nem entra na configuração pública do pacote.
+- Em Production (`VERCEL_ENV=production`), a rota ignora o código de teste mesmo que esteja configurado por engano.
+- A configuração local não configura as variáveis no painel da Vercel.
+
+### Observabilidade
+
+`POST /api/meta/conversions` prepara e registra `conversion_api_event_backup` antes da chamada externa, incluindo identidade do projeto/rota/evento, custom data, presença de identificadores e payload preparado com SHA-256. Valores já hasheados não são hasheados novamente. Cookies `_fbp` e `_fbc` permanecem sem hash.
+
+Header `X-VFX-Dry-Run` e body `dry_run`, `dryRun`, `vfx_dry_run`, `skip_webhook` retornam HTTP 200 com `dry_run: true` e `skipped_meta: true`, sem chamar a Meta. Erros externos, configuração ausente ou erro interno retornam HTTP 202 com `accepted: true` e registram `conversion_api_event_error`, com payload de entrada e payload preparado recuperáveis. Tokens são removidos inclusive de mensagens de erro retornadas pela Meta. `GET /api/meta/conversions` oferece uma verificação de configuração sem revelar credenciais.
+
+O Vite serve a mesma rota de conversão localmente. O Pixel carrega também no localhost, permitindo sua identificação pela extensão e o envio de `PageView`. A CAPI local usa `META_TEST_EVENT_CODE` do `.env.local`. Apenas `?dry_run=1` desativa explicitamente o provider. A prévia local do formulário continua sem enviar cadastros ao webhook comercial. O teste real da API usa dados fictícios e o código de teste.
+
+### Evidência e publicação
+
+- Testes isolados verificam regra de qualificação, falhas, dry-run, hash e redação de tokens. O pacote real também é executado em navegador simulado, verificando um único `PageView` e igualdade de IDs entre Pixel e CAPI.
+- A rota local foi chamada em dry-run e em teste real; a Meta confirmou `events_received: 1` para `Lead` e para `LeadQualificado` em 26/10/2026.
+- Antes de considerar produção pronta: configurar as variáveis server-side da Vercel, publicar a alteração e verificar a rota no domínio customizado e os respectivos logs do deployment.
+- O script `scripts/lp-production-observability-check.sh` citado no material não existe neste repositório nem nos checkouts locais consultados. O gate `OK_PRODUCTION_OBSERVABILITY_READY` ainda não foi executado; a evidência local não o substitui.
+- `npm audit` aponta cinco alertas altos na árvore atual, em `body-parser` e na cadeia de `zod`/Vercel. O pacote solicitado também aumenta o bundle e gera avisos de `eval` e tamanho no build; isso não impede a compilação.
