@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { CheckCircle2, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react';
+import { CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { cnpjDisplay, cnpjMessage, isValidCnpj, isValidPhone, nationalPhone, phoneDisplay, phoneEdit, PHONE_ERROR } from '../../lib/lead-validation.js';
 import { calculateLeadScore } from '../../lib/lead-score.js';
 import { trackAcceptedLead } from '../../lib/meta-lead.js';
@@ -50,7 +50,6 @@ export const LeadForm: React.FC = () => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [submittedName, setSubmittedName] = useState('');
   const [submissionError, setSubmissionError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const submitting = useRef(false);
@@ -211,7 +210,6 @@ export const LeadForm: React.FC = () => {
       }
       logLeadScore({ total: result.lead_score, items: result.score_breakdown, status: result.score_status,
         qualified: result.isQualifiedLead, reasons: result.disqualification_reasons });
-      setSubmittedName(values.ownerName);
       setIsSuccess(true);
       void trackAcceptedLead(tracking, values, result, updateAdvancedMatching).then((events) => {
         if (events.some((event) => event.status === 'rejected')) console.warn('[META PIXEL] Falha no tracking; cadastro recebido.');
@@ -224,14 +222,6 @@ export const LeadForm: React.FC = () => {
     }
   };
 
-  const handleReset = () => {
-    setFormData(initialFormData);
-    setIsSuccess(false);
-    setSubmissionError('');
-    setFieldErrors({});
-    submission.current = null;
-  };
-
   if (isSuccess) {
     return (
       <div className="font-zabal bg-white rounded-2xl border border-neutral-200 shadow-xl p-8 md:p-10 text-center animate-fade-in">
@@ -241,17 +231,6 @@ export const LeadForm: React.FC = () => {
         <h3 className="text-2xl font-serif text-neutral-900 mb-2 font-medium">
           Cadastro recebido com sucesso!
         </h3>
-        <p className="text-neutral-600 text-sm md:text-base leading-relaxed max-w-md mx-auto mb-6">
-          Obrigado, <strong className="text-neutral-900">{submittedName || 'Lojista'}</strong>. Seus dados foram encaminhados para a nossa equipe comercial do Grupo IDHOK. Um representante entrará em contato via WhatsApp / E-mail em breve.
-        </p>
-        <button
-          onClick={handleReset}
-          type="button"
-          className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neutral-700 hover:text-black py-2.5 px-5 rounded-lg border border-neutral-300 hover:border-neutral-400 bg-white hover:bg-neutral-50 transition-all"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Fazer novo cadastro
-        </button>
       </div>
     );
   }
