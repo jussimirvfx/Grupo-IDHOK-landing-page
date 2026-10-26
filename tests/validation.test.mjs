@@ -31,7 +31,7 @@ test('all invalid phones are rejected before any lookup, backup, delivery or con
     let effects = 0;
     const handler = createLeadHandler({ lookup: async () => { effects++; }, fetchImpl: async () => { effects++; }, schedule: () => { effects++; }, logger: () => { effects++; } });
     const res = response();
-    await handler({ method: 'POST', headers: {}, body: { submission_id: '00000000-0000-4000-8000-000000000002', formData: { ownerName: 'Teste isolado', storeName: 'Loja fictícia', phone, email: 'teste@example.invalid', cnpj: '60.887.522/0001-89', instagram: '', storeType: 'Loja multimarcas', hasPhysicalStore: 'Sim', mainBrands: 'Fictícia' } } }, res);
+    await handler({ method: 'POST', headers: {}, body: { submission_id: '00000000-0000-4000-8000-000000000002', formData: { ownerName: 'Teste isolado', storeName: 'Loja fictícia', phone, email: 'teste@example.invalid', cnpj: '60.887.522/0001-89', instagram: '@teste', storeType: 'Multimarcas', hasPhysicalStore: 'Sim', mainBrands: 'Fictícia' } } }, res);
     assert.equal(res.code, 400, String(phone)); assert.equal(effects, 0);
   }
 });
@@ -47,7 +47,7 @@ test('read-only CNPJ and lead handlers pass runtime OIDC, never browser Authoriz
   await read({ method: 'POST', headers, body: { cnpj: '60887522000189' } }, res);
   assert.equal(res.body.encontrado, true);
   const handler = createLeadHandler({ lookup, environment: { N8N_GRUPO_IDHOK_WEBHOOK_URL: 'https://n8n.agenciavfx.com.br/webhook/mock-idhok' }, fetchImpl: async () => ({ ok: true, status: 200 }), schedule: () => {}, logger: () => {} });
-  await handler({ method: 'POST', headers, body: { submission_id: '00000000-0000-4000-8000-000000000003', formData: { ownerName: 'Teste isolado', storeName: 'Loja fictícia', phone: valid[0], email: 'teste@example.invalid', cnpj: '60887522000189', instagram: '', storeType: 'Loja multimarcas', hasPhysicalStore: 'Sim', mainBrands: 'Fictícia' } } }, response());
+  await handler({ method: 'POST', headers, body: { submission_id: '00000000-0000-4000-8000-000000000003', formData: { ownerName: 'Teste isolado', storeName: 'Loja fictícia', phone: valid[0], email: 'teste@example.invalid', cnpj: '60887522000189', instagram: '@teste', storeType: 'Multimarcas', hasPhysicalStore: 'Sim', mainBrands: 'Fictícia' } } }, response());
   assert.equal(seen.length, 2);
   for (const h of seen) assert.equal(h.Authorization, 'Bearer runtime-test');
 });

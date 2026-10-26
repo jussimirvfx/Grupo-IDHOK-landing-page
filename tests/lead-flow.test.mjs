@@ -8,10 +8,10 @@ const fixture = () => ({
   page_url: 'https://lp2.idhok.com.br/?utm_campaign=isolado',
   utm: { utm_campaign: 'isolado' },
   formData: { ownerName: 'Teste isolado', storeName: 'Loja fictícia', phone: '(47) 99999-1234', email: 'teste@example.invalid',
-    cnpj: '60.887.522/0001-89', instagram: '@teste', storeType: 'Loja multimarcas', hasPhysicalStore: 'Sim', mainBrands: 'Marca fictícia' },
+    cnpj: '60.887.522/0001-89', instagram: '@teste', storeType: 'Multimarcas', hasPhysicalStore: 'Sim', mainBrands: 'Marca fictícia' },
 });
 const company = () => ({ cnpj_valido: true, encontrado: true, fonte: 'mock', company: {
-  razao_social: 'Empresa fictícia', situacao_cadastral: 'ATIVA', endereco: { cidade: 'Cidade de teste', estado: 'SC' },
+  razao_social: 'Empresa fictícia', situacao_cadastral: 'ATIVA', data_inicio_atividade: '2020-01-01', endereco: { cidade: 'Cidade de teste', estado: 'SC' },
 } });
 function harness(overrides = {}) {
   const deliveries = [], backups = [], scheduled = [], lookups = [];
@@ -26,7 +26,7 @@ function harness(overrides = {}) {
   return { run, res, deliveries, backups, scheduled, lookups };
 }
 
-test('maps every current field to the former flow without inventing score or answers', async () => {
+test('derives the score and qualification from server-confirmed company data', async () => {
   const h = harness(), body = fixture();
   body.formData.salespeople = '4 ou mais'; body.formData.state = 'XX'; body.leadScore = 999;
   body.company = { situacao_cadastral: 'ATIVA', endereco: { estado: 'XX' } };
@@ -42,11 +42,32 @@ test('maps every current field to the former flow without inventing score or ans
   assert.equal(p.storeType, body.formData.storeType); assert.equal(p.hasPhysicalStore, body.formData.hasPhysicalStore);
   assert.equal(p.message, body.formData.mainBrands); assert.equal(p.mainBrands, body.formData.mainBrands);
   assert.equal(p.state, 'SC'); assert.equal(p.city, 'Cidade de teste'); assert.equal(p.phoneE164, '+5547999991234');
-  assert.equal(p.salespeople, ''); assert.equal(p.segments, ''); assert.equal(p.leadScore, null);
-  assert.equal(p.lead_score, null); assert.equal(p.score_status, 'not_evaluated'); assert.equal(p.isQualifiedLead, undefined);
+  assert.equal(p.salespeople, ''); assert.equal(p.segments, ''); assert.equal(p.leadScore, 100);
+  assert.equal(p.lead_score, 100); assert.equal(p.score_status, 'qualified'); assert.equal(p.isQualifiedLead, true);
+  assert.deepEqual(p.score_breakdown.map((item) => item.points), [40, 34, 1, 25]);
+  assert.deepEqual(p.disqualification_reasons, []);
+  assert.ok(h.backups.some((log) => log.event === 'lead_score_calculated' && log.score.total === 100));
   assert.equal(p.utm_campaign, 'isolado'); assert.equal(p.url, body.page_url);
   assert.ok(h.backups.every((log) => log.submission_id === body.submission_id));
   assert.deepEqual(h.backups.find((log) => log.event === 'landing_form_backup').payload, p);
+});
+
+test('disqualification logs each reason without scoring basic contact fields', async () => {
+  const h = harness({ lookup: async () => { const c = company(); c.company.data_inicio_atividade = '2026-08-01'; return c; } });
+  const body = fixture(); body.formData.storeType = 'Loja online'; body.formData.hasPhysicalStore = 'Não';
+  await h.run(body); await Promise.all(h.scheduled);
+  assert.equal(h.res.body.score_status, 'disqualified');
+  assert.equal(h.res.body.lead_score, 26);
+  assert.equal(h.res.body.disqualification_reasons.length, 3);
+  assert.equal(h.deliveries[0].payload.isQualifiedLead, false);
+});
+
+test('missing opening date keeps qualification pending instead of guessing CNPJ age', async () => {
+  const h = harness({ lookup: async () => { const c = company(); delete c.company.data_inicio_atividade; return c; } });
+  await h.run(); await Promise.all(h.scheduled);
+  assert.equal(h.res.body.score_status, 'pending_company_data');
+  assert.equal(h.res.body.isQualifiedLead, false);
+  assert.equal(h.res.body.lead_score, 75);
 });
 
 test('acceptance completes while the webhook is pending', { timeout: 1500 }, async () => {

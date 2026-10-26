@@ -25,10 +25,11 @@ beforeEach(() => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, '/api/leads');
     const body = JSON.parse(String(options?.body)); requests.push(body);
-    return { ok: true, json: async () => ({ ok: true, accepted: true, backup_recorded: true, delivery_scheduled: true, submission_id: body.submission_id }) } as Response;
+    return { ok: true, json: async () => ({ ok: true, accepted: true, backup_recorded: true, delivery_scheduled: true, submission_id: body.submission_id,
+      lead_score: 100, score_status: 'qualified', isQualifiedLead: true, score_breakdown: [], disqualification_reasons: [] }) } as Response;
   };
 });
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); dom.reconfigure({ url: 'https://lp2.idhok.com.br/' }); });
 const input = (name: string) => document.querySelector(`[name="${name}"]`) as HTMLInputElement;
 const pause = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 550)); });
 
@@ -91,10 +92,10 @@ test('editing inside the phone mask retains the cursor and deletion can clear th
 
 test('submit reads autofill visible values and normalizes exactly what is sent to the API', async () => {
   render(<LeadForm />);
-  for (const [name, value] of Object.entries({ ownerName: 'Teste isolado', storeName: 'Loja fictícia', email: 'teste@example.invalid', cnpj: '60887522000189', mainBrands: 'Marcas fictícias' })) {
+  for (const [name, value] of Object.entries({ ownerName: 'Teste isolado', storeName: 'Loja fictícia', email: 'teste@example.invalid', cnpj: '60887522000189', instagram: 'teste', mainBrands: 'Marcas fictícias' })) {
     await user.type(input(name), value);
   }
-  await user.selectOptions(input('storeType'), 'Loja multimarcas');
+  await user.selectOptions(input('storeType'), 'Multimarcas');
   await user.selectOptions(input('hasPhysicalStore'), 'Sim');
   const phone = input('phone');
   await user.type(phone, '4787654321'); await user.tab();
@@ -105,6 +106,41 @@ test('submit reads autofill visible values and normalizes exactly what is sent t
   assert.equal(requests.length, 1); assert.equal(requests[0].formData.phone, '(47) 98765-4321');
   assert.equal(requests[0].formData.cnpj, '60.887.522/0001-89');
   assert.ok(document.body.textContent?.includes('Cadastro recebido com sucesso!'));
+});
+
+test('localhost logs the full score from the CNPJ response without calling the lead delivery API', async (t) => {
+  dom.reconfigure({ url: 'http://localhost:3001/' });
+  const info = t.mock.method(console, 'info', () => {});
+  const table = t.mock.method(console, 'table', () => {});
+  t.mock.method(console, 'group', () => {});
+  t.mock.method(console, 'groupEnd', () => {});
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/cnpj');
+    requests.push(JSON.parse(String(options?.body)));
+    return { ok: true, json: async () => ({ cnpj_valido: true, encontrado: true, company: {
+      situacao_cadastral: 'Ativa', data_abertura: '01/01/2020', endereco: { cidade: 'Teste', estado: 'SC' },
+    } }) } as Response;
+  };
+  render(<LeadForm />);
+  for (const [name, value] of Object.entries({ ownerName: 'Teste local', storeName: 'Loja fictícia', phone: '47987654321',
+    email: 'teste@example.invalid', cnpj: '60887522000189', instagram: 'teste', mainBrands: 'Marcas fictícias' })) {
+    await user.type(input(name), value);
+  }
+  await user.selectOptions(input('storeType'), 'Multimarcas');
+  await user.selectOptions(input('hasPhysicalStore'), 'Sim');
+  await act(async () => { fireEvent.submit(input('phone').form!); });
+  assert.deepEqual(requests, [{ cnpj: '60.887.522/0001-89' }]);
+  assert.deepEqual(table.mock.calls[0].arguments[0].map((item: any) => item.Pontos), [40, 34, 1, 25]);
+  assert.ok(info.mock.calls.some((call) => call.arguments[0] === 'Pontuação:' && call.arguments[1] === 100));
+  assert.ok(info.mock.calls.some((call) => call.arguments[0] === 'Status:' && call.arguments[1] === 'Qualificado'));
+  assert.ok(!document.body.textContent?.includes('Cadastro recebido com sucesso!'));
+
+  globalThis.fetch = async () => { throw new Error('local lookup unavailable'); };
+  const warning = t.mock.method(console, 'warn', () => {});
+  await act(async () => { fireEvent.submit(input('phone').form!); });
+  assert.equal(warning.mock.callCount(), 1);
+  assert.ok(info.mock.calls.some((call) => call.arguments[0] === 'Pontuação:' && call.arguments[1] === 74));
+  assert.ok(info.mock.calls.some((call) => call.arguments[0] === 'Status:' && call.arguments[1] === 'Pendente de dados do CNPJ'));
 });
 
 test('invalid submit makes no request and later field selection keeps focus and text', async () => {
@@ -120,8 +156,8 @@ test('invalid submit makes no request and later field selection keeps focus and 
 
 test('required cadastral confirmation shows a single safe form error, without CNPJ helper text', async () => {
   render(<LeadForm />);
-  for (const [name, value] of Object.entries({ ownerName: 'Teste isolado', storeName: 'Loja fictícia', phone: '47987654321', email: 'teste@example.invalid', cnpj: '60887522000189', mainBrands: 'Fictícias' })) await user.type(input(name), value);
-  await user.selectOptions(input('storeType'), 'Loja multimarcas');
+  for (const [name, value] of Object.entries({ ownerName: 'Teste isolado', storeName: 'Loja fictícia', phone: '47987654321', email: 'teste@example.invalid', cnpj: '60887522000189', instagram: 'teste', mainBrands: 'Fictícias' })) await user.type(input(name), value);
+  await user.selectOptions(input('storeType'), 'Multimarcas');
   await user.selectOptions(input('hasPhysicalStore'), 'Sim');
   globalThis.fetch = async () => ({ ok: false, json: async () => ({ ok: false, error: 'cnpj-inactive' }) }) as Response;
   await act(async () => { fireEvent.submit(input('phone').form!); });

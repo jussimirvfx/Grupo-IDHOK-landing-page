@@ -12,6 +12,19 @@ export default defineConfig(() => {
       },
     },
     server: {
+      proxy: {
+        // Only the read-only company lookup is available during local previews.
+        '/api/cnpj': {
+          target: 'https://lp2.idhok.com.br',
+          changeOrigin: true,
+          proxyTimeout: 45_000,
+          configure(proxy) {
+            proxy.on('proxyReq', (request) => {
+              request.setHeader('origin', 'https://lp2.idhok.com.br');
+            });
+          },
+        },
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

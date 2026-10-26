@@ -11,7 +11,6 @@ import { CollectionCarousel } from './components/CollectionCarousel';
 import { FaqAccordion } from './components/FaqAccordion';
 import { focusFormAfterScroll } from '../lib/form-focus.js';
 
-const WHATSAPP_URL = 'https://wa.me/';
 const COUNT_UP_DURATION = 1300;
 
 type AnimatedNumberProps = {
@@ -608,12 +607,11 @@ export default function App() {
         </div>
       </footer>
 
-      <a
-        href={WHATSAPP_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Falar com o Grupo IDHOK pelo WhatsApp"
-        title="Fale conosco pelo WhatsApp"
+      <button
+        type="button"
+        onClick={scrollToForm}
+        aria-label="Ir para o formulário de cadastro"
+        title="Ir para o formulário de cadastro"
         className="fixed right-5 bottom-5 sm:right-7 sm:bottom-7 z-50 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_8px_28px_rgba(0,0,0,0.28)] ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:scale-105 hover:bg-[#20bd5a] hover:shadow-[0_12px_32px_rgba(0,0,0,0.32)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#25D366]/40 active:translate-y-0 active:scale-95"
       >
         <span className="absolute inset-0 -z-10 rounded-full bg-[#25D366]/35 animate-ping motion-reduce:animate-none" />
@@ -624,7 +622,7 @@ export default function App() {
         >
           <path d="M16.04 3C9.4 3 4 8.32 4 14.86c0 2.3.67 4.54 1.95 6.46L4.1 28l6.88-1.8a12.2 12.2 0 0 0 5.05 1.1h.01c6.64 0 12.05-5.32 12.05-11.86C28.1 8.9 22.68 3 16.04 3Zm0 22.3h-.01a10.2 10.2 0 0 1-4.6-1.12l-.33-.18-4.08 1.07 1.09-3.92-.22-.35A9.83 9.83 0 0 1 6 14.86C6 9.42 10.5 5 16.04 5c5.53 0 10.04 4.42 10.04 9.86 0 5.44-4.5 10.44-10.04 10.44Zm5.5-7.39c-.3-.15-1.78-.86-2.06-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.95 1.16-.17.2-.35.23-.65.08-.3-.15-1.27-.46-2.42-1.46a9.05 9.05 0 0 1-1.68-2.06c-.17-.3-.02-.46.13-.6.14-.13.3-.34.45-.51.15-.18.2-.3.3-.5.1-.2.05-.38-.03-.53-.07-.15-.67-1.6-.92-2.18-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1-1.04 2.45 0 1.44 1.07 2.83 1.22 3.03.15.2 2.1 3.15 5.1 4.42.71.3 1.27.48 1.7.62.72.22 1.37.19 1.88.11.58-.08 1.78-.71 2.03-1.4.25-.68.25-1.27.18-1.4-.08-.12-.28-.2-.58-.34Z" />
         </svg>
-      </a>
+      </button>
     </div>
   );
 }

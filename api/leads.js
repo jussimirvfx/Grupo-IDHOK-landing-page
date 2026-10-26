@@ -1,9 +1,10 @@
 import { waitUntil } from '@vercel/functions';
 import { lookupCnpj } from '../lib/cnpj.js';
 import { cnpjDisplay, isValidCnpj, isValidPhone, nationalPhone, phoneDisplay, STORE_TYPES } from '../lib/lead-validation.js';
+import { calculateLeadScore } from '../lib/lead-score.js';
 
 const fields = ['ownerName', 'storeName', 'phone', 'email', 'cnpj', 'instagram', 'storeType', 'hasPhysicalStore', 'mainBrands'];
-const required = fields.filter((key) => key !== 'instagram');
+const required = fields;
 const truthy = (value) => value === true || value === 1 || /^(true|1|yes|sim|on)$/i.test(String(value || ''));
 
 export function createLeadHandler({ lookup = lookupCnpj, fetchImpl = fetch, schedule = waitUntil, logger = console.info, environment = process.env } = {}) {
@@ -25,7 +26,8 @@ export function createLeadHandler({ lookup = lookupCnpj, fetchImpl = fetch, sche
     }
     const input = body?.formData;
     if (!input || fields.some((key) => typeof input[key] !== 'string' || input[key].length > 2000) || required.some((key) => !input[key].trim())
-      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()) || !STORE_TYPES.includes(input.storeType)
+      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()) || !/^@?[a-zA-Z0-9._]+$/.test(input.instagram.trim())
+      || !STORE_TYPES.includes(input.storeType)
       || !['Sim', 'Não'].includes(input.hasPhysicalStore) || !/^[a-zA-Z0-9-]{16,80}$/.test(body?.submission_id || '')) {
       return res.status(400).json({ ok: false, error: 'invalid-form' });
     }
@@ -56,14 +58,18 @@ export function createLeadHandler({ lookup = lookupCnpj, fetchImpl = fetch, sche
       return res.status(422).json({ ok: false, error: 'cnpj-inactive', backup_recorded: true });
     }
     const utm = Object.fromEntries(['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].map((key) => [key, typeof body.utm?.[key] === 'string' ? body.utm[key].slice(0, 500) : '']));
+    const score = calculateLeadScore(form, registration.company);
+    try { record('lead_score_calculated', { score }); }
+    catch { return res.status(503).json({ ok: false, error: 'backup-unconfirmed', backup_recorded: true }); }
     const payload = {
       fullName: form.ownerName, email: form.email, phone: form.phone,
       phoneE164: '+55' + nationalPhone(form.phone), storeName: form.storeName, cnpj: form.cnpj,
       city: registration.company.endereco.cidade || '', state: registration.company.endereco.estado,
       storeType: form.storeType, hasPhysicalStore: form.hasPhysicalStore, instagram: form.instagram,
       message: form.mainBrands, mainBrands: form.mainBrands,
-      // These answers are absent from the current design. Never invent them or a score.
-      salespeople: '', segments: '', leadScore: null, lead_score: null, score_status: 'not_evaluated',
+      salespeople: '', segments: '', leadScore: score.total, lead_score: score.total,
+      score_status: score.status, isQualifiedLead: score.qualified,
+      score_breakdown: score.items, disqualification_reasons: score.reasons,
       url: typeof body.page_url === 'string' ? body.page_url.slice(0, 2000) : '', ...utm,
       timestamp: new Date().toISOString(), source: 'landing-page-essence-reflexos', submission_id: submissionId,
       cnpj_validation_status: 'cadastral_valid', cnpj_provider: registration.fonte || '',
@@ -87,7 +93,9 @@ export function createLeadHandler({ lookup = lookupCnpj, fetchImpl = fetch, sche
     });
     try { schedule(delivery); scheduled = true; }
     catch { return res.status(503).json({ ok: false, error: 'delivery-not-scheduled', backup_recorded: true }); }
-    return res.status(200).json({ ok: true, accepted: true, backup_recorded: true, delivery_scheduled: true, submission_id: submissionId, score_status: 'not_evaluated' });
+    return res.status(200).json({ ok: true, accepted: true, backup_recorded: true, delivery_scheduled: true, submission_id: submissionId,
+      lead_score: score.total, score_status: score.status, isQualifiedLead: score.qualified,
+      score_breakdown: score.items, disqualification_reasons: score.reasons });
   };
 }
 

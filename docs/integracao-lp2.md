@@ -4,7 +4,7 @@ Atualização: 23/10/2026.
 
 Domínio: https://lp2.idhok.com.br/
 
-Origem do design: commit `27e97baee738107a1f408b0426b1395e56ef08d7`. Os campos, opções e classes do formulário foram mantidos. A confirmação simulada em localStorage foi substituída pelo aceite de `/api/leads`.
+Origem do design: commit `27e97baee738107a1f408b0426b1395e56ef08d7`. A confirmação simulada em localStorage foi substituída pelo aceite de `/api/leads`. As opções de tipo de loja seguem a configuração de lead scoring enviada em 23/10/2026.
 
 ## Destino existente
 
@@ -30,13 +30,15 @@ Origem do design: commit `27e97baee738107a1f408b0426b1395e56ef08d7`. Os campos, 
 | Cadastro do CNPJ, no servidor | city, state | Cidade, Estado |
 | URL e UTMs | url, utm_* | URL, Criativo de conversão |
 
-O usuário decidiu manter apenas os campos atuais e ajustar o score depois. Portanto `salespeople` e `segments` seguem vazios, `leadScore` e `lead_score` seguem `null`, e `score_status` é `not_evaluated`. Não se inventa score zero, qualificação ou respostas ausentes. Não foram criados campos de vendedores ou segmentos, nem alteradas as opções de tipo de loja.
+Todos os nove campos visíveis são obrigatórios. Cidade, estado e tempo de CNPJ são obtidos da consulta cadastral no servidor e não aparecem no formulário. `salespeople` e `segments` seguem vazios porque não existem perguntas correspondentes.
+
+O score considera apenas tipo de loja, loja física, estado prioritário e tempo de CNPJ. Os pontos seguem a configuração enviada: Boutique/Multimarcas 40; shopping 5; online 10; autônomo 1; Magazine 5; loja física Sim 34/Não 5; estado prioritário 1; CNPJ com menos de 1 ano 10, 1 a 2 anos 15, 3 a 4 anos 20, 5 anos ou mais 25. O total é limitado a 100. Loja online, autônomo, Magazine, ausência de loja física e CNPJ com menos de um ano desqualificam; o payload e os logs incluem score, critérios, status e motivos. Se não houver data de abertura nem tempo de CNPJ confiável, o status fica `pending_company_data` e não é marcado como qualificado.
 
 ## Validação e confirmação
 
 A API valida o formato dos campos, telefone brasileiro, dígitos verificadores do CNPJ e mantém a confirmação de CNPJ ativo usada pela LP anterior. O usuário confirmou expressamente esse modo em 23/10/2026. A consulta cadastral usa a API central, com OIDC do runtime da Vercel e a identidade do projeto novo. Cidade e estado vêm dessa resposta, sem confiar no navegador. O payload inclui também `encontrado`, `fonte` e `company` normalizado pelo servidor, com o mesmo conteúdo no backup e no webhook.
 
-O formulário valida os dois dígitos verificadores imediatamente ao completar o CNPJ; valor válido não gera mensagem. CNPJ incompleto recebe aviso ao sair do campo. A consulta ocorre no servidor durante o envio, sem mostrar dados cadastrais no campo. A confirmação obrigatória que falhar produz uma única mensagem genérica no formulário e não agenda entrega.
+O formulário valida os dois dígitos verificadores imediatamente ao completar o CNPJ; valor válido não gera mensagem. CNPJ incompleto recebe aviso ao sair do campo. A consulta ocorre no servidor durante o envio, sem mostrar dados cadastrais no campo. A confirmação obrigatória que falhar produz uma única mensagem genérica no formulário e não agenda entrega. O navegador exibe cada erro de preenchimento junto ao campo e desloca o foco para o primeiro erro.
 
 Telefone usa a mesma regra na interface e na API: DDD brasileiro, celular de 11 dígitos iniciado por 9 após o DDD ou fixo de 10 iniciado por 2 a 5. Aceita `+55` completo e preserva DDD 55 nacional. Não corta colagens excedentes; após um celular válido, uma tecla numérica excedente é ignorada. O 11º dígito depois de um aparente fixo é preservado e invalidado. O submit lê os valores visíveis, inclusive autofill sem evento, antes de verificar as restrições nativas de campos obrigatórios e e-mail. A máscara preserva cursor e foco. O foco atrasado do botão de cadastro é cancelado quando o visitante escolhe outro campo.
 
@@ -49,10 +51,16 @@ O formulário só confirma após receber `accepted`, `backup_recorded`, `deliver
 ## Validação feita sem leads reais
 
 - `npm run lint` e `npm run build`.
-- `npm test`: contrato completo, igualdade do backup com o payload, score não calculado, aceite antes de resposta do webhook, falhas posteriores, validação, configuração e agendamento, bloqueio de dry-run e propagação do OIDC.
-- O HTML inicial renderizado preserva os campos, textos e classes do design; só acrescenta atributos de validação e autocomplete.
+- `npm test`: contrato completo, igualdade do backup com o payload, score calculado, aceite antes de resposta do webhook, falhas posteriores, validação, configuração e agendamento, bloqueio de dry-run e propagação do OIDC.
+- O HTML inicial renderizado contém os nove campos obrigatórios e seletores inicialmente vazios.
 - Testes renderizados cobrem digitação, colagem, edição no meio, exclusão, erro e correção, autofill sem evento, foco de CTA e foco após submit inválido.
 - Handler real com consulta e entrega simuladas confirma zero efeitos para telefone inválido, contrato cadastral no backup/webhook e token OIDC do runtime, ignorando Authorization do navegador.
 - O workflow e a aba de destino foram inspecionados, sem executar envio de cadastro, mensagem ou gravação de teste na planilha.
 
-O escopo final desta alteração é conectar o formulário ao webhook existente e atualizar a Central. Score, novos campos, mudança de rastreamento e configuração do botão de WhatsApp ficaram fora desta alteração após a orientação mais recente do usuário.
+O botão flutuante e os demais CTAs de cadastro levam ao formulário. A consulta real de CNPJ depende do token OIDC da Vercel; testes locais usam uma resposta cadastral simulada.
+
+## Console no localhost
+
+Com `npm run dev`, o envio de um formulário válido em localhost calcula uma prévia usando o mesmo `calculateLeadScore` da API. O Vite encaminha apenas `/api/cnpj` para a rota de consulta da LP publicada, que mantém a autenticação da API central no servidor. Nenhum cadastro de teste local é enviado ao webhook.
+
+No console do navegador, o grupo `Lead score — Grupo IDHOK` apresenta os pontos de cada critério, o total, o status, a qualificação e os motivos de desqualificação. Se a consulta falhar, o console informa que a nota é parcial e os dados ausentes não recebem pontos. CNPJ inativo não é marcado como qualificado. O formulário permanece disponível para outro teste, sem exibir confirmação de entrega comercial.

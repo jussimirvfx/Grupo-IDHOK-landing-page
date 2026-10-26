@@ -1,23 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
-import path from 'node:path';
-import { transform } from 'esbuild';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { LeadForm } from '../src/components/LeadForm.tsx';
 
-test('initial fields, copy and classes match the design; only validation attributes are added', async () => {
-  const original = execFileSync('git', ['show', '27e97baee738107a1f408b0426b1395e56ef08d7:src/components/LeadForm.tsx'], { encoding: 'utf8' });
-  const compiled = await transform(original, { loader: 'tsx', format: 'esm', jsx: 'automatic' });
-  const cache = path.resolve('node_modules/.cache'); await mkdir(cache, { recursive: true });
-  const temporary = await mkdtemp(path.join(cache, 'idhok-markup-'));
-  try {
-    const file = path.join(temporary, 'original.mjs'); await writeFile(file, compiled.code);
-    const { LeadForm: OriginalForm } = await import(pathToFileURL(file).href);
-    const withoutValidationAttributes = (html: string) => html.replace(/ (?:inputMode|autoComplete|noValidate)="[^"]*"/g, '');
-    assert.equal(withoutValidationAttributes(renderToStaticMarkup(<LeadForm />)), renderToStaticMarkup(<OriginalForm />));
-  } finally { await rm(temporary, { recursive: true, force: true }); }
+test('all visible fields are required and qualification selects begin unselected', () => {
+  const markup = renderToStaticMarkup(<LeadForm />);
+  const fields = [...markup.matchAll(/<(input|select)\b[^>]*\bname="([^"]+)"[^>]*>/g)];
+  assert.equal(fields.length, 9);
+  for (const [, , name] of fields) assert.match(markup.match(new RegExp(`<(?:input|select)[^>]*name="${name}"[^>]*>`))?.[0] || '', /\brequired=""/);
+  assert.match(markup, /<option value="" selected="">Selecione<\/option>/);
+  assert.doesNotMatch(markup, /Pessoa física \(Consumidor final\)/);
 });

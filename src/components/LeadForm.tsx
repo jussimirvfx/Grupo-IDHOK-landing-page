@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { CheckCircle2, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react';
 import { cnpjDisplay, cnpjMessage, isValidCnpj, isValidPhone, nationalPhone, phoneDisplay, phoneEdit, PHONE_ERROR } from '../../lib/lead-validation.js';
+import { calculateLeadScore } from '../../lib/lead-score.js';
 
 interface FormData {
   ownerName: string;
@@ -32,13 +33,23 @@ export const formatCNPJ = cnpjDisplay;
 // Mask utility for Brazilian Phone / WhatsApp: (11) 99999-9999
 export const formatPhone = phoneDisplay;
 
+const logLeadScore = (score: ReturnType<typeof calculateLeadScore>) => {
+  console.group('Lead score — Grupo IDHOK');
+  console.table(score.items.map((item) => ({ Critério: item.criterion, Resposta: item.answer, Pontos: item.points })));
+  console.info('Pontuação:', score.total, '/ 100');
+  console.info('Status:', score.status === 'qualified' ? 'Qualificado' : score.status === 'disqualified' ? 'Desqualificado' : 'Pendente de dados do CNPJ');
+  console.info('Qualificado:', score.qualified);
+  console.info('Motivos de desqualificação:', score.reasons.length ? score.reasons : 'Nenhum');
+  console.groupEnd();
+};
+
 export const LeadForm: React.FC = () => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submittedName, setSubmittedName] = useState('');
   const [submissionError, setSubmissionError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ cnpj: '', phone: '' });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const submitting = useRef(false);
   const submission = useRef<{ id: string; signature: string } | null>(null);
 
@@ -50,10 +61,12 @@ export const LeadForm: React.FC = () => {
   const updateMaskedField = (field: HTMLInputElement, raw: string, pastedCursor?: number) => {
     const cursor = pastedCursor ?? field.selectionStart;
     const digitsBefore = raw.slice(0, cursor ?? raw.length).replace(/\D/g, '').length;
-    const edit = field.name === 'phone' ? phoneEdit(formData.phone, raw) : {
-      value: formatCNPJ(raw), accepted: true,
-      error: raw.replace(/\D/g, '').length >= 14 || fieldErrors.cnpj ? cnpjMessage(formatCNPJ(raw)) : '',
-    };
+    const edit = field.name === 'phone' ? phoneEdit(formData.phone, raw)
+      : !/^[\d./-]*$/.test(raw) || raw.replace(/\D/g, '').length > 14
+        ? { value: formData.cnpj, accepted: false,
+          error: !/^[\d./-]*$/.test(raw) ? 'Use apenas números e a pontuação do CNPJ.' : 'CNPJ deve conter exatamente 14 números.' }
+        : { value: formatCNPJ(raw), accepted: true,
+          error: raw.replace(/\D/g, '').length >= 14 || fieldErrors.cnpj ? cnpjMessage(formatCNPJ(raw)) : '' };
     field.value = edit.value;
     setFormData((previous) => ({ ...previous, [field.name]: edit.value }));
     setFieldError(field, edit.error);
@@ -99,6 +112,7 @@ export const LeadForm: React.FC = () => {
     const { name, value } = e.target;
     e.target.setCustomValidity('');
     setSubmissionError('');
+    setFieldErrors((previous) => ({ ...previous, [name]: '' }));
     if (name === 'cnpj') {
       updateMaskedField(e.target as HTMLInputElement, value);
     } else if (name === 'phone') {
@@ -114,6 +128,12 @@ export const LeadForm: React.FC = () => {
     const form = e.currentTarget;
     // Read the displayed values too, including browser autofill without onChange.
     const values = Object.fromEntries(new FormData(form).entries()) as unknown as FormData;
+    for (const name of ['ownerName', 'storeName', 'email', 'instagram', 'storeType', 'hasPhysicalStore', 'mainBrands'] as const) {
+      const field = form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement;
+      const value = values[name].trim();
+      setFieldError(field as HTMLInputElement, !value ? 'Este campo é obrigatório.'
+        : name === 'instagram' && !/^@?[a-zA-Z0-9._]+$/.test(value) ? 'Informe um usuário de Instagram válido.' : '');
+    }
     for (const [name, valid, message] of [
       ['cnpj', isValidCnpj(values.cnpj), cnpjMessage(values.cnpj)],
       ['phone', isValidPhone(values.phone), PHONE_ERROR],
@@ -124,7 +144,11 @@ export const LeadForm: React.FC = () => {
     // Validate the visible autofill values before native constraints can use a
     // stale customValidity from an earlier edit. Keep all required/email checks.
     if (!form.reportValidity()) {
-      form.querySelector<HTMLInputElement>(':invalid')?.focus({ preventScroll: true });
+      const invalid = Array.from(form.querySelectorAll<HTMLInputElement | HTMLSelectElement>(':invalid'));
+      setFieldErrors((previous) => ({ ...previous, ...Object.fromEntries(invalid.map((field) => [field.name,
+        field.validity.valueMissing ? 'Este campo é obrigatório.' : field.name === 'email' ? 'Informe um e-mail válido.' : field.validationMessage])) }));
+      invalid[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      invalid[0]?.focus({ preventScroll: true });
       return;
     }
     values.phone = phoneDisplay(values.phone);
@@ -139,6 +163,34 @@ export const LeadForm: React.FC = () => {
     }
     const submissionId = submission.current.id;
     try {
+      const localPreview = import.meta.env?.PROD !== true && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+      if (localPreview) {
+        let company = null;
+        try {
+          const lookup = await fetch('/api/cnpj', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cnpj: values.cnpj }), signal: AbortSignal.timeout(45_000),
+          });
+          const registration = await lookup.json();
+          if (!lookup.ok || !registration?.cnpj_valido || !registration.encontrado || !registration.company) throw new Error('lookup-unavailable');
+          company = registration.company;
+          console.info('Dados do CNPJ para pontuação:', {
+            cidade: company.endereco?.cidade, estado: company.endereco?.estado,
+            data_abertura: company.data_inicio_atividade ?? company.data_abertura ?? company.abertura ?? company.data_fundacao,
+          });
+        } catch {
+          console.warn('Consulta de CNPJ indisponível. Os critérios sem dados ficam sem pontos; a pontuação é parcial.');
+        }
+        const score = calculateLeadScore(values, company);
+        if (company && !['ATIVA', '2', '02'].includes(String(company.situacao_cadastral).trim().toUpperCase())) {
+          score.qualified = false;
+          score.status = 'disqualified';
+          score.reasons.push(`CNPJ não está ativo: ${company.situacao_cadastral || 'situação indisponível'}`);
+        }
+        logLeadScore(score);
+        console.info('Prévia local concluída. Nenhum cadastro foi enviado ao fluxo comercial.');
+        return;
+      }
       const search = new URLSearchParams(window.location.search);
       const response = await fetch('/api/leads', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -155,6 +207,8 @@ export const LeadForm: React.FC = () => {
         };
         throw new Error(messages[result?.error] || 'Não foi possível confirmar o cadastro. Tente novamente.');
       }
+      logLeadScore({ total: result.lead_score, items: result.score_breakdown, status: result.score_status,
+        qualified: result.isQualifiedLead, reasons: result.disqualification_reasons });
       setSubmittedName(values.ownerName);
       setIsSuccess(true);
     } catch (error) {
@@ -169,7 +223,7 @@ export const LeadForm: React.FC = () => {
     setFormData(initialFormData);
     setIsSuccess(false);
     setSubmissionError('');
-    setFieldErrors({ cnpj: '', phone: '' });
+    setFieldErrors({});
     submission.current = null;
   };
 
@@ -188,7 +242,7 @@ export const LeadForm: React.FC = () => {
         <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200/70 text-left text-xs text-neutral-600 mb-6 space-y-1">
           <p><span className="font-semibold text-neutral-900">Loja:</span> {formData.storeName || 'Não informada'}</p>
           <p><span className="font-semibold text-neutral-900">Telefone:</span> {formData.phone || 'Não informado'}</p>
-          <p><span className="font-semibold text-neutral-900">Tipo:</span> {formData.storeType || 'Loja multimarcas'}</p>
+          <p><span className="font-semibold text-neutral-900">Tipo:</span> {formData.storeType}</p>
         </div>
         <button
           onClick={handleReset}
@@ -225,8 +279,11 @@ export const LeadForm: React.FC = () => {
               placeholder="Seu nome"
               value={formData.ownerName}
               onChange={handleChange}
+              aria-label="Nome completo proprietário"
+              aria-invalid={Boolean(fieldErrors.ownerName)}
               className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400"
             />
+            {fieldErrors.ownerName && <p role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.ownerName}</p>}
           </div>
 
           {/* 2. Nome da loja */}
@@ -241,8 +298,11 @@ export const LeadForm: React.FC = () => {
               placeholder="Sua loja"
               value={formData.storeName}
               onChange={handleChange}
+              aria-label="Nome da loja"
+              aria-invalid={Boolean(fieldErrors.storeName)}
               className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400"
             />
+            {fieldErrors.storeName && <p role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.storeName}</p>}
           </div>
 
           {/* 3. Telefone / WhatsApp */}
@@ -253,6 +313,7 @@ export const LeadForm: React.FC = () => {
             <input
               type="tel"
               name="phone"
+              aria-label="Telefone / WhatsApp"
               inputMode="tel"
               autoComplete="tel-national"
               aria-invalid={fieldErrors.phone ? true : undefined}
@@ -288,8 +349,11 @@ export const LeadForm: React.FC = () => {
               placeholder="seu@email.com"
               value={formData.email}
               onChange={handleChange}
+              aria-label="E-mail"
+              aria-invalid={Boolean(fieldErrors.email)}
               className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400"
             />
+            {fieldErrors.email && <p role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.email}</p>}
           </div>
 
           {/* 5. CNPJ (with mask and limit) */}
@@ -300,6 +364,7 @@ export const LeadForm: React.FC = () => {
             <input
               type="text"
               name="cnpj"
+              aria-label="CNPJ"
               inputMode="numeric"
               aria-invalid={fieldErrors.cnpj ? true : undefined}
               aria-describedby={fieldErrors.cnpj ? 'idhok-cnpj-error' : undefined}
@@ -324,12 +389,16 @@ export const LeadForm: React.FC = () => {
               <input
                 type="text"
                 name="instagram"
+                required
+                aria-label="Instagram da loja"
+                aria-invalid={Boolean(fieldErrors.instagram)}
                 placeholder="sualoja"
                 value={formData.instagram.replace(/^@/, '')}
-                onChange={(e) => setFormData((prev) => ({ ...prev, instagram: e.target.value }))}
+                onChange={handleChange}
                 className="w-full text-sm pl-8 pr-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400"
               />
             </div>
+            {fieldErrors.instagram && <p role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.instagram}</p>}
           </div>
 
           {/* 7. Tipo de loja */}
@@ -340,17 +409,21 @@ export const LeadForm: React.FC = () => {
             <select
               name="storeType"
               required
+              aria-label="Tipo de loja"
+              aria-invalid={Boolean(fieldErrors.storeType)}
               value={formData.storeType}
               onChange={handleChange}
               className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all text-neutral-800"
             >
-              <option value="">Selecione uma opção</option>
-              <option value="Loja multimarcas">Loja multimarcas</option>
+              <option value="">Selecione</option>
+              <option value="Multimarcas">Multimarcas</option>
               <option value="Loja online">Loja online</option>
               <option value="Boutique">Boutique</option>
+              <option value="Loja de shopping">Loja de shopping</option>
               <option value="Revendedor(a) autônomo(a)">Revendedor(a) autônomo(a)</option>
-              <option value="Pessoa física (Consumidor final)">Pessoa física (Consumidor final)</option>
+              <option value="Magazine">Magazine</option>
             </select>
+            {fieldErrors.storeType && <p role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.storeType}</p>}
           </div>
 
           {/* 8. Loja física? */}
@@ -361,6 +434,8 @@ export const LeadForm: React.FC = () => {
             <select
               name="hasPhysicalStore"
               required
+              aria-label="Loja física?"
+              aria-invalid={Boolean(fieldErrors.hasPhysicalStore)}
               value={formData.hasPhysicalStore}
               onChange={handleChange}
               className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all text-neutral-800"
@@ -369,6 +444,7 @@ export const LeadForm: React.FC = () => {
               <option value="Sim">Sim</option>
               <option value="Não">Não</option>
             </select>
+            {fieldErrors.hasPhysicalStore && <p role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.hasPhysicalStore}</p>}
           </div>
         </div>
 
@@ -384,8 +460,11 @@ export const LeadForm: React.FC = () => {
             placeholder="Informe as principais marcas que você revende atualmente"
             value={formData.mainBrands}
             onChange={handleChange}
+            aria-label="Principais marcas que vende na loja"
+            aria-invalid={Boolean(fieldErrors.mainBrands)}
             className="w-full text-sm px-3.5 py-2.5 bg-neutral-50/60 border border-neutral-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all placeholder:text-neutral-400"
           />
+          {fieldErrors.mainBrands && <p role="alert" className="text-xs text-red-700 mt-1.5">{fieldErrors.mainBrands}</p>}
         </div>
 
         {submissionError && <p role="alert" className="text-sm text-red-700">{submissionError}</p>}
