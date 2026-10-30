@@ -80,6 +80,28 @@ test('phone typing, paste, DDI and DDD 55 preserve every digit without silent tr
   assert.equal(phone.value, '');
 });
 
+test('typing +55 key by key keeps every digit, focus and the cursor at the end', async () => {
+  render(<LeadForm />);
+  const phone = input('phone');
+  await user.type(phone, '+554');
+  assert.equal(phone.value, '+55 (4'); assert.equal(phone.validationMessage, '');
+  await user.type(phone, '7987654321');
+  assert.equal(phone.value, '(47) 98765-4321'); assert.equal(phone.validationMessage, '');
+  assert.equal(phone.selectionStart, '(47) 98765-4321'.length); assert.equal(document.activeElement, phone);
+  assert.equal(document.querySelector('#idhok-phone-error'), null);
+  await user.type(phone, '8');
+  assert.equal(phone.value, '(47) 98765-4321'); assert.equal(phone.validationMessage, '');
+  await user.clear(phone); await user.type(phone, '+5555987654321'); await user.tab();
+  assert.equal(phone.value, '(55) 98765-4321'); assert.equal(phone.validationMessage, '');
+  await user.clear(phone); await user.type(phone, '55987654321'); await user.tab();
+  assert.equal(phone.value, '(55) 98765-4321'); assert.equal(phone.validationMessage, '');
+  await user.clear(phone); await user.type(phone, '+55479876'); await user.tab();
+  assert.equal(phone.value, '+55 (47) 9876'); assert.match(phone.validationMessage, /Telefone inválido/);
+  await user.clear(phone); await user.type(phone, '+55');
+  await user.keyboard('{Backspace}{Backspace}{Backspace}');
+  assert.equal(phone.value, '');
+});
+
 test('editing inside the phone mask retains the cursor and deletion can clear the input', async () => {
   render(<LeadForm />);
   const phone = input('phone'); await user.type(phone, '47987654321');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cnpjDisplay, cnpjMessage, isValidCnpj, isValidPhone, nationalPhone, phoneEdit } from '../lib/lead-validation.js';
+import { cnpjDisplay, cnpjMessage, isValidCnpj, isValidPhone, nationalPhone, phoneEdit, PHONE_LIMIT_ERROR } from '../lib/lead-validation.js';
 import { createLeadHandler } from '../api/leads.js';
 import { createCnpjHandler } from '../api/cnpj.js';
 import { lookupCnpj } from '../lib/cnpj.js';
@@ -24,6 +24,24 @@ test('phone shared rule rejects malformed input and distinguishes DDI 55 from DD
   assert.equal(nationalPhone('5532345678'), '5532345678');
   assert.equal(nationalPhone('554732345678'), '4732345678');
   assert.equal(phoneEdit('(47) 98765-4321', '47987654321111').accepted, false);
+});
+
+test('typing +55 key by key keeps the DDI apart from the DDD and collapses to the national mask', () => {
+  const typeKeys = (keys) => [...keys].reduce((state, key) => {
+    const edit = phoneEdit(state.value, state.value + key);
+    assert.equal(edit.accepted, true, `${state.value} + ${key}`);
+    assert.notEqual(edit.error, PHONE_LIMIT_ERROR, `${state.value} + ${key}`);
+    return edit;
+  }, { value: '' });
+  assert.deepEqual(typeKeys('+5547987654321'), { value: '(47) 98765-4321', error: '', accepted: true });
+  assert.equal(typeKeys('+554').value, '+55 (4');
+  assert.equal(typeKeys('+55479876543').value, '+55 (47) 9876-543');
+  assert.deepEqual(typeKeys('+554732345678'), { value: '(47) 3234-5678', error: '', accepted: true });
+  assert.deepEqual(typeKeys('+5555987654321'), { value: '(55) 98765-4321', error: '', accepted: true });
+  assert.deepEqual(typeKeys('55987654321'), { value: '(55) 98765-4321', error: '', accepted: true });
+  assert.equal(phoneEdit('+5', '+56').accepted, false);
+  assert.equal(phoneEdit('+', '+4').accepted, false);
+  assert.equal(phoneEdit('+55 (47) 88765-4321', '+55 (47) 88765-43211').error, PHONE_LIMIT_ERROR);
 });
 
 test('all invalid phones are rejected before any lookup, backup, delivery or conversion', async () => {

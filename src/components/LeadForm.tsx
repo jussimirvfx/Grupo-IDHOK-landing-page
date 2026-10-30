@@ -62,7 +62,9 @@ export const LeadForm: React.FC = () => {
 
   const updateMaskedField = (field: HTMLInputElement, raw: string, pastedCursor?: number) => {
     const cursor = pastedCursor ?? field.selectionStart;
-    const digitsBefore = raw.slice(0, cursor ?? raw.length).replace(/\D/g, '').length;
+    // The + of a key-by-key +55 counts as a digit so the cursor stays after it.
+    const keys = (text: string) => text.replace(/[^\d+]/g, '').length;
+    const digitsBefore = keys(raw.slice(0, cursor ?? raw.length));
     const edit = field.name === 'phone' ? phoneEdit(formData.phone, raw)
       : !/^[\d./-]*$/.test(raw) || raw.replace(/\D/g, '').length > 14
         ? { value: formData.cnpj, accepted: false,
@@ -73,10 +75,12 @@ export const LeadForm: React.FC = () => {
     setFormData((previous) => ({ ...previous, [field.name]: edit.value }));
     setFieldError(field, edit.error);
     // Restore by digit position, including edits in the middle of the mask.
+    // A collapsed +55 drops the leading DDI from the count.
     if (edit.accepted && cursor !== null) {
+      const dropped = keys(raw) - keys(edit.value);
       let position = 0, seen = 0;
-      while (position < edit.value.length && seen < digitsBefore) {
-        if (/\d/.test(edit.value[position])) seen++;
+      while (position < edit.value.length && seen < digitsBefore - dropped) {
+        if (/[\d+]/.test(edit.value[position])) seen++;
         position++;
       }
       field.setSelectionRange(position, position);
